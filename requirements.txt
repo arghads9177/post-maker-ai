@@ -1,0 +1,13 @@
+streamlit
+langchain
+langchain-community
+langchain-core
+langchain-openai
+langserve
+langchain-huggingface
+python-dotenv
+openai
+bs4
+chromadb
+transformers
+accelerate
