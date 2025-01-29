@@ -11,3 +11,5 @@ bs4
 chromadb
 transformers
 accelerate
+requests
+beautifulsoup4
