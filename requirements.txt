@@ -13,3 +13,5 @@ transformers
 accelerate
 requests
 beautifulsoup4
+groq
+langchain-groq
