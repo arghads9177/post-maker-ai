@@ -6,16 +6,18 @@ from langchain_community.llms import HuggingFacePipeline
 from transformers import AutoModelForSeq2SeqLM, AutoModelForCausalLM, AutoTokenizer, pipeline
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from langchain_groq import ChatGroq
 import requests
 from bs4 import BeautifulSoup
 
 # Load environment variables
 load_dotenv()
-HF_API_KEY = os.getenv("HF_API_KEY")
-print(HF_API_KEY)
-# Hugging Face Inference API configuration
-API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
-headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+# HF_API_KEY = os.getenv("HF_API_KEY")
+# print(HF_API_KEY)
+# # Hugging Face Inference API configuration
+# API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
+# headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
 # Define a regex function for URL detection
 def extract_urls(text):
@@ -36,78 +38,58 @@ def extract_description(text):
     return re.sub(url_pattern, "", text)
 
 # Summarize the reference URLs
-def summarize_url_contents(url):
+def summarize_url_contents(url,):
     try:
         response = requests.get(url)
         soup = BeautifulSoup(response.content, "html.parser")
         paragraphs = soup.find_all("p")
         content = " ".join([p.text for p in paragraphs])
-        return content
+        prompt_template = """
+        You are a professional content writer. Summarize the following content:
+
+        {content}
+
+        -  Include the main points of the content.
+        - Summarize within 1000 wards.
+        """
+        prompt = PromptTemplate(input_variables=["content"], template=prompt_template)
+        llm = ChatGroq(model_name= "llama-3.1-8b-instant")
+        chain = prompt | llm
+        response = chain.invoke({"content": content})
+        return response.content
+        # if len(content) > 1500:
+        #     content = content[:1500]  # Truncate to the first 1000 characters
+        # return content
     except Exception as e:
         return f"Error fetching content of {url}: {str(e)}"
 
-# Query to Hugging Face
-def huggingface_query(payload):
-    try:
-        response = requests.post(API_URL, headers= headers, json= payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": {str(e)}}
 # Generate blog for specified social media with description and URL reference
 def generate_blog(description, references, social_media):
+    try:
 
-    # Load a summarization model (Flan-T5, Falcon, etc.)
-    # model_name = "google/flan-t5-base"
-    # Load Falcon 7B model and tokenizer
-    # model_name = "tiiuae/falcon-7b"
-    # tokenizer = AutoTokenizer.from_pretrained(model_name)
-    # model = AutoModelForCausalLM.from_pretrained(
-    #     model_name,
-    #     device_map= "auto",
-    #     torch_dtype= "auto"
-    # )
+        llm = ChatGroq(model_name= "llama-3.1-8b-instant")
 
-    # # Create pipeline for blog generation
-    # blog_generation_pipeline = pipeline(
-    #     "text-generation",
-    #     model= model,
-    #     tokenizer= tokenizer,
-    #     max_length = 512,
-    #     min_length = 50,
-    #     temperature = 0.7,
-    #     top_p = 0.9
-    # )
-
-    # # Integrate with langchain
-    # llm = HuggingFacePipeline(pipeline= blog_generation_pipeline)
-
-    # Define prompt template for blog generation
-    prompt_template = """
-    You are a professional blog writer.Using the following inputs:
-    - Topic description: {description}
-    - Contents from reference: {references}
-    - Social media platform: {social_media}
-    Create an engaging blog post suitable for specified social media platform. Adapt the tone and style for the platform.
-    """
-    prompt = PromptTemplate(
-        input_variables=["description", "references", "social_media"],
-        template= prompt_template
-    )
-    # Render the prompt to a plain string
-    formatted_prompt = prompt.format(
-        description=description,
-        references=references,
-        social_media=social_media
-    )
-    # Define LLM chain
-    # chain = LLMChain(llm= llm, prompt= prompt)
-    # return chain.run(description= description, references= references, social_media= social_media)
-    payload = {"inputs": formatted_prompt, "parameters": {"max_length": 1024, "temperature": 0.7}}
-    response = huggingface_query(payload)
-    if "error" in response:
-        return f"Error generating blog: {response['error']}"
-    return response.get("generated_text", "Error: No text generated")
+        # Define prompt template for blog generation
+        prompt_template = """
+        You are a professional blog writer.Using the following inputs:
+        - Topic description: {description}
+        - Contents from reference: {references}
+        - Social media platform: {social_media}
+        Create an engaging blog post with exciting title and suitable for specified social media platform. Adapt the tone and style for the platform.
+        """
+        prompt = PromptTemplate(
+            input_variables=["description", "references", "social_media"],
+            template= prompt_template
+        )
+        chain = prompt | llm
+        response = chain.invoke({
+            "description": description, 
+            "references":references,
+            "social_media": social_media
+        })
+        return response.content
+    except Exception as e:
+        st.error(f"Error in generating blog:{str(e)}")
 
 # Define page config
 st.set_page_config(
