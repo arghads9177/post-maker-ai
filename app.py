@@ -38,7 +38,7 @@ def extract_description(text):
     return re.sub(url_pattern, "", text)
 
 # Summarize the reference URLs
-def summarize_url_contents(url):
+def summarize_url_contents(url,):
     try:
         response = requests.get(url)
         soup = BeautifulSoup(response.content, "html.parser")
